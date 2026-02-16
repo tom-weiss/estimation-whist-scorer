@@ -39,6 +39,12 @@ export function clampRoundCount(requestedRounds: number, startingHandSize: numbe
   return clamp(requestedRounds, 1, maxRounds);
 }
 
+export function getRoundHandSizes(startingHandSize: number, requestedRounds: number): number[] {
+  const sequence = generateHandSequence(startingHandSize);
+  const roundCount = clampRoundCount(requestedRounds, startingHandSize);
+  return sequence.slice(0, roundCount);
+}
+
 export function generateSuitCycle(start: SuitStart, roundCount: number): Suit[] {
   const baseOrder = start === 'clubs' ? SUIT_ORDER_CLUBS_START : SUIT_ORDER_SPADES_START;
   const suits: Suit[] = [];

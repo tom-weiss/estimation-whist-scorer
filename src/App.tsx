@@ -7,8 +7,8 @@ import {
   calculateTotals,
   clamp,
   clampRoundCount,
-  generateHandSequence,
   generateSuitCycle,
+  getRoundHandSizes,
   getBiddingOrder,
   getDealerIndex,
   getFirstLeaderIndex,
@@ -19,6 +19,7 @@ import type { Config, GameState, RoundState, UIState } from './types';
 
 const STORAGE_RESUME_KEY = 'estimation-whist-scorer-resume-state';
 const STORAGE_CONFIG_KEY = 'estimation-whist-scorer-last-config';
+const MAX_STARTING_HAND_PICKER = 26;
 const SUIT_GRAPHIC: Record<RoundState['suit'], { label: string; symbol: string; className: string }> = {
   C: { label: 'Clubs', symbol: '♣', className: 'suit-clubs' },
   D: { label: 'Diamonds', symbol: '♦', className: 'suit-diamonds' },
@@ -94,9 +95,8 @@ function sanitizeConfig(config: Config): Config {
 }
 
 function createRounds(config: Config): RoundState[] {
-  const handSequence = generateHandSequence(config.startingHandSize);
-  const roundCount = clampRoundCount(config.numberOfRounds, config.startingHandSize);
-  const hands = handSequence.slice(0, roundCount);
+  const hands = getRoundHandSizes(config.startingHandSize, config.numberOfRounds);
+  const roundCount = hands.length;
   const suits = generateSuitCycle(config.suitStart, roundCount);
 
   return hands.map((handSize, roundIndex) => ({
@@ -570,34 +570,44 @@ function App() {
             <div className="form-grid compact-two-col">
               <label className="field">
                 <span>Players (2-8)</span>
-                <input
-                  type="number"
-                  min={MIN_PLAYERS}
-                  max={MAX_PLAYERS}
-                  value={config.numberOfPlayers}
-                  onChange={(event) => onPlayerCountChange(event.target.value)}
-                />
+                <select value={config.numberOfPlayers} onChange={(event) => onPlayerCountChange(event.target.value)}>
+                  {Array.from({ length: MAX_PLAYERS - MIN_PLAYERS + 1 }, (_, offset) => {
+                    const value = MIN_PLAYERS + offset;
+                    return (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    );
+                  })}
+                </select>
               </label>
 
               <label className="field">
                 <span>Starting hand (N)</span>
-                <input
-                  type="number"
-                  min={1}
-                  value={config.startingHandSize}
-                  onChange={(event) => onStartingHandSizeChange(event.target.value)}
-                />
+                <select value={config.startingHandSize} onChange={(event) => onStartingHandSizeChange(event.target.value)}>
+                  {Array.from({ length: MAX_STARTING_HAND_PICKER }, (_, index) => {
+                    const value = index + 1;
+                    return (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    );
+                  })}
+                </select>
               </label>
 
               <label className="field">
                 <span>Rounds (1-{maxRounds})</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={maxRounds}
-                  value={config.numberOfRounds}
-                  onChange={(event) => onRoundCountChange(event.target.value)}
-                />
+                <select value={config.numberOfRounds} onChange={(event) => onRoundCountChange(event.target.value)}>
+                  {Array.from({ length: maxRounds }, (_, index) => {
+                    const value = index + 1;
+                    return (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    );
+                  })}
+                </select>
               </label>
 
               <label className="field">

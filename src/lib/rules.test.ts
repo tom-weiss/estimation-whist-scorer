@@ -2,8 +2,10 @@ import {
   calculateRoundScore,
   calculateRoundScores,
   calculateTotals,
+  clampRoundCount,
   generateHandSequence,
   generateSuitCycle,
+  getRoundHandSizes,
   getForbiddenLastBidValue,
   isBidAllowed,
   validateDeckConstraint,
@@ -22,6 +24,25 @@ describe('deck validation', () => {
 describe('down then up hand sequence', () => {
   it('generates N, N-1, ..., 1, 2, ..., N', () => {
     expect(generateHandSequence(4)).toEqual([4, 3, 2, 1, 2, 3, 4]);
+  });
+
+  it('returns only [1] for N=1', () => {
+    expect(generateHandSequence(1)).toEqual([1]);
+  });
+
+  it('always has length 2N-1 for N>0', () => {
+    const n = 7;
+    expect(generateHandSequence(n)).toHaveLength((2 * n) - 1);
+  });
+
+  it('uses the first R hand sizes from the generated sequence', () => {
+    expect(getRoundHandSizes(7, 7)).toEqual([7, 6, 5, 4, 3, 2, 1]);
+    expect(getRoundHandSizes(7, 9)).toEqual([7, 6, 5, 4, 3, 2, 1, 2, 3]);
+  });
+
+  it('clamps rounds to 2N-1 maximum', () => {
+    expect(clampRoundCount(99, 5)).toBe(9);
+    expect(getRoundHandSizes(5, 99)).toEqual([5, 4, 3, 2, 1, 2, 3, 4, 5]);
   });
 });
 
