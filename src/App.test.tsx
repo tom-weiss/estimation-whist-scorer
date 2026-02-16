@@ -21,7 +21,7 @@ describe('App', () => {
 
   it('renders the configuration screen by default', () => {
     render(<App />);
-    expect(screen.getByRole('heading', { name: 'Game Setup' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Estimation Whist Scorer.' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Start Game' })).toBeInTheDocument();
   });
 
@@ -40,7 +40,7 @@ describe('App', () => {
     expect(quitButton).toBeInTheDocument();
     fireEvent.click(quitButton);
 
-    expect(screen.getByRole('heading', { name: 'Summary' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /wins by \d+\.$/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'New Game' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Next Round' })).not.toBeInTheDocument();
   });
@@ -58,7 +58,7 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: /Tom/ }));
     fireEvent.click(screen.getByRole('button', { name: /Tom/ }));
 
-    expect(screen.getByRole('heading', { name: 'Summary' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /wins by \d+\.$/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Quit Game' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Next Round' })).toBeInTheDocument();
   });

@@ -278,6 +278,9 @@ function App() {
     currentRound.bids[lastBidderIndex] === forbiddenLastBid;
 
   const currentSuitGraphic = currentRound ? SUIT_GRAPHIC[currentRound.suit] : null;
+  const setupSuitGraphic = config.suitStart === 'spades' ? SUIT_GRAPHIC.S : SUIT_GRAPHIC.C;
+  const cardCornerSuitSymbol = currentSuitGraphic ? currentSuitGraphic.symbol : setupSuitGraphic.symbol;
+  const cardCornerSuitClassName = currentSuitGraphic ? currentSuitGraphic.className : setupSuitGraphic.className;
   const leaderboard = useMemo(() => {
     if (!currentRound) {
       return [];
@@ -316,24 +319,36 @@ function App() {
       }));
   }, [config, currentRound, gameState.rounds, ui.currentRoundIndex]);
 
-  const headerInfo = useMemo(() => {
-    if (!currentRound || ui.screen === 'config') {
-      return [];
+  const headerLine = useMemo(() => {
+    if (ui.screen === 'config' || !currentRound) {
+      return 'Estimation Whist Scorer.';
     }
 
-    const info = [
-      { label: 'Round', value: `${ui.currentRoundIndex + 1}/${gameState.rounds.length}` },
-      { label: 'Hand', value: `${currentRound.handSize}` },
-      { label: 'Dealer', value: getPlayerName(config, currentRound.dealerIndex) },
-    ];
+    if (ui.screen === 'bidding') {
+      return `${getPlayerName(config, currentRound.dealerIndex)} deals ${currentRound.handSize} cards.`;
+    }
 
     if (ui.screen === 'playing') {
-      info.push({ label: 'Trick', value: `${ui.currentTrick}/${currentRound.handSize}` });
-      info.push({ label: 'Leader', value: getPlayerName(config, ui.currentLeaderIndex) });
+      return `${getPlayerName(config, ui.currentLeaderIndex)} to lead.`;
     }
 
-    return info;
-  }, [config, currentRound, gameState.rounds.length, ui.currentLeaderIndex, ui.currentRoundIndex, ui.currentTrick, ui.screen]);
+    const winner = leaderboard[0];
+    const runnerUp = leaderboard[1];
+    const winningMargin = winner ? winner.total - (runnerUp?.total ?? winner.total) : 0;
+    const winningName = winner ? winner.name : getPlayerName(config, 0);
+
+    return `${winningName} wins by ${winningMargin}.`;
+  }, [config, currentRound, leaderboard, ui.currentLeaderIndex, ui.screen]);
+
+  function getRoleTokens(playerIndex: number): Array<{ key: string; label: string; title: string }> {
+    const tokens: Array<{ key: string; label: string; title: string }> = [];
+
+    if (currentRound && playerIndex === currentRound.dealerIndex) {
+      tokens.push({ key: 'dealer', label: 'D', title: 'Dealer' });
+    }
+
+    return tokens;
+  }
 
   function updateConfig(updater: (currentConfig: Config) => Config) {
     setGameState((previousState) => ({
@@ -595,7 +610,36 @@ function App() {
     });
   }
 
+  function canQuitFromCurrentScreen(): boolean {
+    if (ui.screen !== 'bidding' && ui.screen !== 'playing') {
+      return true;
+    }
+
+    if (typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent)) {
+      return true;
+    }
+
+    if (typeof window === 'undefined' || typeof window.confirm !== 'function') {
+      return true;
+    }
+
+    const message =
+      ui.screen === 'playing'
+        ? 'Quit now and score the current round based on tricks already recorded?'
+        : 'Quit now and return to summary?';
+
+    try {
+      return window.confirm(message);
+    } catch {
+      return true;
+    }
+  }
+
   function quitGame() {
+    if (!canQuitFromCurrentScreen()) {
+      return;
+    }
+
     setGameState((previousState) => {
       const roundIndex = previousState.ui.currentRoundIndex;
       const playerCount = previousState.config.numberOfPlayers;
@@ -672,59 +716,15 @@ function App() {
   }
 
   const isFinalRound = ui.currentRoundIndex >= gameState.rounds.length - 1;
-  const screenLabel =
-    ui.screen === 'config'
-      ? 'Game Setup'
-      : ui.screen === 'bidding'
-        ? 'Bidding'
-        : ui.screen === 'playing'
-          ? 'Playing'
-          : 'Summary';
-
   return (
     <div className="app-shell">
       <header className="app-header">
-        <div className="header-top">
-          <div className="header-title-block">
-            <h1 className="app-title">{screenLabel}</h1>
-            {ui.screen === 'config' && <p className="version-label">Version {APP_VERSION}</p>}
-          </div>
-
-          <div className="header-badges">
-            {currentSuitGraphic ? (
-              <div className={`suit-card ${currentSuitGraphic.className}`} aria-label={`Current suit ${currentSuitGraphic.label}`}>
-                <span className="suit-symbol">{currentSuitGraphic.symbol}</span>
-                <span className="suit-name">{currentSuitGraphic.label}</span>
-              </div>
-            ) : (
-              <div className="suit-card suit-setup" aria-label="Setup stage">
-                <span className="suit-symbol">🂠</span>
-                <span className="suit-name">Setup</span>
-              </div>
-            )}
-
-            <div className="hand-card" aria-label={`Hand size ${currentRound ? currentRound.handSize : config.startingHandSize}`}>
-              <span className="hand-label">Hand</span>
-              <span className="hand-value">{currentRound ? currentRound.handSize : config.startingHandSize}</span>
-            </div>
-          </div>
-        </div>
-
-        {headerInfo.length > 0 ? (
-          <div className="header-info-grid">
-            {headerInfo.map((item) => (
-              <div className="info-tile" key={item.label}>
-                <span className="info-label">{item.label}</span>
-                <span className="info-value">{item.value}</span>
-              </div>
-            ))}
-          </div>
-        ) : null}
+        <h1 className="app-title">{headerLine}</h1>
       </header>
 
-      <main className="app-content">
+      <main className={`app-content screen-${ui.screen}`}>
         {ui.screen === 'config' && (
-          <section className="panel">
+          <section className="panel config-panel">
             <div className="form-grid config-main-fields">
               <label className="field">
                 <span>Players (2-8)</span>
@@ -844,20 +844,35 @@ function App() {
               </p>
             )}
 
-            <div className="bidding-progress-list" aria-label="Bid order progress">
+            <div className={`bidding-progress-list${!biddingComplete ? ' has-active-turn' : ''}`} aria-label="Bid order progress">
               {biddingOrder.map((playerIndex, orderIndex) => {
                 const isDone = orderIndex < currentBidTurn;
                 const isCurrent = !biddingComplete && orderIndex === currentBidTurn;
                 const bidValue = currentRound.bids[playerIndex];
+                const roleTokens = getRoleTokens(playerIndex);
 
                 return (
                   <div
-                    className={`bidding-progress-row${isDone ? ' is-done' : ''}${isCurrent ? ' is-current' : ''}`}
+                    className={`bidding-progress-row${isDone ? ' is-done' : ''}${isCurrent ? ' is-current' : ''}${
+                      roleTokens.some((token) => token.key === 'dealer') ? ' is-dealer' : ''
+                    }`}
                     key={playerIndex}
                   >
                     <div className="bidding-progress-main">
                       <span className="bidding-progress-order">{orderIndex + 1}.</span>
-                      <span className="bidding-progress-name">{getPlayerName(config, playerIndex)}</span>
+                      <span className="bidding-progress-name-group">
+                        <span className="bidding-progress-name">{getPlayerName(config, playerIndex)}</span>
+                        {isCurrent && <span className="bidding-current-pill">Current bidder</span>}
+                        {roleTokens.length > 0 && (
+                          <span className="role-token-row">
+                            {roleTokens.map((token) => (
+                              <span key={token.key} className={`role-token is-${token.key}`} title={token.title} aria-label={token.title}>
+                                {token.label}
+                              </span>
+                            ))}
+                          </span>
+                        )}
+                      </span>
                       <span className="bidding-progress-bid">{isDone ? bidValue : '—'}</span>
                     </div>
 
@@ -874,7 +889,11 @@ function App() {
                             <button
                               type="button"
                               key={value}
-                              className={`bid-option${isSelectedOption ? ' is-selected' : ''}${isForbiddenOption ? ' is-forbidden' : ''}`}
+                              className={`bid-option ${cardCornerSuitClassName}${isSelectedOption ? ' is-selected' : ''}${
+                                isForbiddenOption ? ' is-forbidden' : ''
+                              }`}
+                              data-card={value}
+                              data-suit={cardCornerSuitSymbol}
                               onClick={() => selectBidForCurrentPlayer(value)}
                               disabled={isForbiddenOption}
                               aria-label={`Bid ${value}`}
@@ -900,7 +919,7 @@ function App() {
         )}
 
         {ui.screen === 'playing' && currentRound && (
-          <section className="panel">
+          <section className="panel playing-panel">
             <p className="subtitle">Who wins the trick?</p>
             <div className="winner-grid">
               {config.playerNames.map((_, index) => {
@@ -908,11 +927,39 @@ function App() {
                 const contract = currentRound.bids[index];
                 const progressClass =
                   tricksSoFar < contract ? 'is-under' : tricksSoFar > contract ? 'is-over' : 'is-on';
+                const roleTokens = getRoleTokens(index);
+                const hasDealerToken = roleTokens.some((token) => token.key === 'dealer');
 
                 return (
-                  <button key={index} type="button" className="winner-button" onClick={() => recordTrickWinner(index)}>
-                    <span className={`winner-progress ${progressClass}`}>{`${tricksSoFar}/${contract}`}</span>
-                    <span className="winner-name">{getPlayerName(config, index)}</span>
+                  <button
+                    key={index}
+                    type="button"
+                    className={`winner-button${hasDealerToken ? ' is-dealer' : ''}`}
+                    onClick={() => recordTrickWinner(index)}
+                  >
+                    <span className={`winner-progress ${progressClass}`} aria-label={`Tricks ${tricksSoFar}, bid ${contract}`}>
+                      <span
+                        className={`winner-mini-card winner-mini-card-tricks ${cardCornerSuitClassName}`}
+                        data-suit={cardCornerSuitSymbol}
+                      >
+                        <span className="winner-mini-card-value">{tricksSoFar}</span>
+                      </span>
+                      <span className={`winner-mini-card winner-mini-card-bid ${cardCornerSuitClassName}`} data-suit={cardCornerSuitSymbol}>
+                        <span className="winner-mini-card-value">{contract}</span>
+                      </span>
+                    </span>
+                    <span className="winner-name-row">
+                      <span className="winner-name">{getPlayerName(config, index)}</span>
+                      {roleTokens.length > 0 && (
+                        <span className="role-token-row">
+                          {roleTokens.map((token) => (
+                            <span key={token.key} className={`role-token is-${token.key}`} title={token.title} aria-label={token.title}>
+                              {token.label}
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                    </span>
                   </button>
                 );
               })}
@@ -925,7 +972,7 @@ function App() {
             {!isFinalRound && (
               <>
                 <p className="summary-heading">Current Round</p>
-                <table className="summary-table">
+                <table className="table-felt summary-table">
                   <thead>
                     <tr>
                       <th>Player</th>
@@ -949,7 +996,7 @@ function App() {
             )}
 
             <p className="summary-heading">Leaderboard</p>
-            <table className="leaderboard-table">
+            <table className="table-felt leaderboard-table">
               <thead>
                 <tr>
                   <th className="leaderboard-col-rank">#</th>
@@ -982,7 +1029,7 @@ function App() {
             {isFinalRound && (
               <>
                 <p className="summary-heading">Game Summary By Round</p>
-                <table className="game-summary-table">
+                <table className="table-felt game-summary-table">
                   <thead>
                     <tr>
                       <th>R</th>
@@ -1025,6 +1072,7 @@ function App() {
       <footer className="app-footer">
         {ui.screen === 'config' && (
           <div className="footer-actions config-two-col">
+            <p className="footer-version">Version {APP_VERSION}</p>
             {savedGameState ? (
               <button type="button" onClick={resumeSavedGame}>
                 Resume
@@ -1035,7 +1083,7 @@ function App() {
               </button>
             )}
 
-            <button type="button" onClick={startGame} disabled={!canStartGame}>
+            <button type="button" className="primary-action" onClick={startGame} disabled={!canStartGame}>
               Start Game
             </button>
           </div>
@@ -1047,7 +1095,7 @@ function App() {
               Quit Game
             </button>
 
-            <button type="button" onClick={beginPlaying} disabled={!biddingStateIsValid}>
+            <button type="button" className="primary-action" onClick={beginPlaying} disabled={!biddingStateIsValid}>
               Start Playing
             </button>
           </div>
@@ -1069,14 +1117,14 @@ function App() {
                   Quit Game
                 </button>
 
-                <button type="button" onClick={moveToNextRound}>
+                <button type="button" className="primary-action" onClick={moveToNextRound}>
                   Next Round
                 </button>
               </>
             ) : (
               <>
                 <p className="footer-note">Game Over</p>
-                <button type="button" onClick={newGame}>
+                <button type="button" className="primary-action" onClick={newGame}>
                   New Game
                 </button>
               </>
