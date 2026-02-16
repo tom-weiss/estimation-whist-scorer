@@ -24,6 +24,7 @@ export interface RoundState {
 export interface UIState {
   screen: Screen;
   currentRoundIndex: number;
+  currentBidTurn: number;
   currentTrick: number;
   currentLeaderIndex: number;
 }

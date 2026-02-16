@@ -61,6 +61,7 @@ function createDefaultUI(): UIState {
   return {
     screen: 'config',
     currentRoundIndex: 0,
+    currentBidTurn: 0,
     currentTrick: 1,
     currentLeaderIndex: 0,
   };
@@ -132,8 +133,22 @@ function readSavedGameState(): GameState | null {
     if (!parsed || typeof parsed !== 'object' || !parsed.config || !parsed.ui || !Array.isArray(parsed.rounds)) {
       return null;
     }
+    const sanitizedConfig = sanitizeConfig(parsed.config);
+    const activeRound = parsed.rounds[parsed.ui.currentRoundIndex];
+    const maxBidTurn = activeRound ? sanitizedConfig.numberOfPlayers : 0;
+    const currentBidTurn =
+      typeof parsed.ui.currentBidTurn === 'number'
+        ? clamp(Math.floor(parsed.ui.currentBidTurn), 0, maxBidTurn)
+        : 0;
 
-    return parsed;
+    return {
+      ...parsed,
+      config: sanitizedConfig,
+      ui: {
+        ...parsed.ui,
+        currentBidTurn,
+      },
+    };
   } catch {
     return null;
   }
@@ -231,6 +246,9 @@ function App() {
     return getBiddingOrder(currentRound.dealerIndex, config.numberOfPlayers);
   }, [currentRound, config.numberOfPlayers]);
 
+  const currentBidTurn = currentRound ? clamp(ui.currentBidTurn, 0, biddingOrder.length) : 0;
+  const biddingComplete = currentRound ? currentBidTurn >= biddingOrder.length : false;
+
   const forbiddenLastBid = useMemo(() => {
     if (!currentRound) {
       return null;
@@ -241,7 +259,7 @@ function App() {
 
   const lastBidderIndex = biddingOrder.length > 0 ? biddingOrder[biddingOrder.length - 1] : null;
   const biddingStateIsValid = useMemo(() => {
-    if (!currentRound || lastBidderIndex === null) {
+    if (!currentRound || lastBidderIndex === null || !biddingComplete) {
       return false;
     }
 
@@ -250,9 +268,10 @@ function App() {
     }
 
     return currentRound.bids[lastBidderIndex] !== forbiddenLastBid;
-  }, [currentRound, forbiddenLastBid, lastBidderIndex]);
+  }, [biddingComplete, currentRound, forbiddenLastBid, lastBidderIndex]);
 
   const lastBidIsInvalid =
+    biddingComplete &&
     currentRound !== undefined &&
     lastBidderIndex !== null &&
     forbiddenLastBid !== null &&
@@ -369,6 +388,7 @@ function App() {
         ui: {
           screen: 'bidding',
           currentRoundIndex: 0,
+          currentBidTurn: 0,
           currentTrick: 1,
           currentLeaderIndex: getFirstLeaderIndex(firstRound.dealerIndex, normalizedConfig.numberOfPlayers),
         },
@@ -384,16 +404,28 @@ function App() {
     setGameState(savedGameState);
   }
 
-  function setBid(playerIndex: number, value: number) {
+  function selectBidForCurrentPlayer(value: number) {
     setGameState((previousState) => {
       const roundIndex = previousState.ui.currentRoundIndex;
       const round = previousState.rounds[roundIndex];
 
-      if (!round) {
+      if (!round || value < 0 || value > round.handSize) {
         return previousState;
       }
 
-      if (value < 0 || value > round.handSize) {
+      const order = getBiddingOrder(round.dealerIndex, previousState.config.numberOfPlayers);
+      const bidTurn = clamp(previousState.ui.currentBidTurn, 0, order.length);
+      const playerIndex = order[bidTurn];
+
+      if (playerIndex === undefined) {
+        return previousState;
+      }
+
+      const lastPlayerIndex = order[order.length - 1] ?? null;
+      const forbidden = getForbiddenLastBidValue(round.bids, round.handSize, order);
+      const isForbidden = playerIndex === lastPlayerIndex && forbidden !== null && value === forbidden;
+
+      if (isForbidden) {
         return previousState;
       }
 
@@ -409,6 +441,26 @@ function App() {
       return {
         ...previousState,
         rounds: nextRounds,
+        ui: {
+          ...previousState.ui,
+          currentBidTurn: clamp(bidTurn + 1, 0, order.length),
+        },
+      };
+    });
+  }
+
+  function goToPreviousBidder() {
+    setGameState((previousState) => {
+      if (previousState.ui.currentBidTurn <= 0) {
+        return previousState;
+      }
+
+      return {
+        ...previousState,
+        ui: {
+          ...previousState.ui,
+          currentBidTurn: previousState.ui.currentBidTurn - 1,
+        },
       };
     });
   }
@@ -418,6 +470,20 @@ function App() {
       const round = previousState.rounds[previousState.ui.currentRoundIndex];
 
       if (!round) {
+        return previousState;
+      }
+
+      const order = getBiddingOrder(round.dealerIndex, previousState.config.numberOfPlayers);
+      const bidTurn = clamp(previousState.ui.currentBidTurn, 0, order.length);
+      const lastPlayerIndex = order[order.length - 1] ?? null;
+      const forbidden = getForbiddenLastBidValue(round.bids, round.handSize, order);
+      const bidsAreComplete = bidTurn >= order.length;
+      const lastBidValid =
+        lastPlayerIndex === null ||
+        forbidden === null ||
+        round.bids[lastPlayerIndex] !== forbidden;
+
+      if (!bidsAreComplete || !lastBidValid) {
         return previousState;
       }
 
@@ -507,6 +573,7 @@ function App() {
         ui: {
           screen: 'bidding',
           currentRoundIndex: nextRoundIndex,
+          currentBidTurn: 0,
           currentTrick: 1,
           currentLeaderIndex: getFirstLeaderIndex(nextRound.dealerIndex, previousState.config.numberOfPlayers),
         },
@@ -574,6 +641,7 @@ function App() {
           ...previousState.ui,
           screen: 'summary',
           currentRoundIndex: finalRoundIndex,
+          currentBidTurn: 0,
           currentTrick: 1,
           currentLeaderIndex: getFirstLeaderIndex(finalRound.dealerIndex, playerCount),
         },
@@ -605,7 +673,6 @@ function App() {
         <div className="header-top">
           <div className="header-title-block">
             <h1 className="app-title">{`Estimation Whist Scorer: ${screenLabel}`}</h1>
-            <p className="subtitle">{ui.screen === 'config' ? 'Game Configuration' : 'Live Round Control'}</p>
             {ui.screen === 'config' && <p className="version-label">Version {APP_VERSION}</p>}
           </div>
 
@@ -750,10 +817,10 @@ function App() {
         )}
 
         {ui.screen === 'bidding' && currentRound && (
-          <section className="panel">
-            {forbiddenLastBid !== null && (
+          <section className="panel bidding-panel">
+            {lastBidderIndex !== null && forbiddenLastBid !== null && (
               <p className="bidding-banner">
-                {getPlayerName(config, currentRound.dealerIndex)} cannot bid {forbiddenLastBid}.
+                {getPlayerName(config, lastBidderIndex)} cannot bid {forbiddenLastBid}.
               </p>
             )}
 
@@ -762,46 +829,58 @@ function App() {
                 Total bids cannot equal {currentRound.handSize}. {getPlayerName(config, lastBidderIndex)} must change bid.
               </p>
             )}
-            <div className="rows-list">
-              {biddingOrder.map((playerIndex) => {
+
+            <div className="bidding-progress-list" aria-label="Bid order progress">
+              {biddingOrder.map((playerIndex, orderIndex) => {
+                const isDone = orderIndex < currentBidTurn;
+                const isCurrent = !biddingComplete && orderIndex === currentBidTurn;
                 const bidValue = currentRound.bids[playerIndex];
-                const canDecrement = bidValue > 0;
-                const canIncrement = bidValue < currentRound.handSize;
-                const isLastBidder = playerIndex === biddingOrder[biddingOrder.length - 1];
-                const isForbiddenBid = isLastBidder && forbiddenLastBid !== null && bidValue === forbiddenLastBid;
 
                 return (
-                  <div className="player-row" key={playerIndex}>
-                    <span className="player-name">{getPlayerName(config, playerIndex)}</span>
-
-                    <div className="stepper" role="group" aria-label={`Bid for ${getPlayerName(config, playerIndex)}`}>
-                      <button
-                        type="button"
-                        onClick={() => setBid(playerIndex, bidValue - 1)}
-                        disabled={!canDecrement}
-                      >
-                        -
-                      </button>
-
-                      <span className="stepper-value">{bidValue}</span>
-
-                      <button
-                        type="button"
-                        onClick={() => setBid(playerIndex, bidValue + 1)}
-                        disabled={!canIncrement}
-                      >
-                        +
-                      </button>
+                  <div
+                    className={`bidding-progress-row${isDone ? ' is-done' : ''}${isCurrent ? ' is-current' : ''}`}
+                    key={playerIndex}
+                  >
+                    <div className="bidding-progress-main">
+                      <span className="bidding-progress-order">{orderIndex + 1}.</span>
+                      <span className="bidding-progress-name">{getPlayerName(config, playerIndex)}</span>
+                      <span className="bidding-progress-bid">{isDone ? bidValue : '—'}</span>
                     </div>
 
-                    {isLastBidder && forbiddenLastBid !== null && (
-                      <p className={isForbiddenBid ? 'helper-text helper-text-error' : 'helper-text'}>
-                        Last bidder cannot choose {forbiddenLastBid}.
-                      </p>
+                    {isCurrent && (
+                      <div className="bid-options-grid" role="group" aria-label={`Bid options for ${getPlayerName(config, playerIndex)}`}>
+                        {Array.from({ length: currentRound.handSize + 1 }, (_, value) => {
+                          const isForbiddenOption =
+                            playerIndex === lastBidderIndex &&
+                            forbiddenLastBid !== null &&
+                            value === forbiddenLastBid;
+                          const isSelectedOption = bidValue === value;
+
+                          return (
+                            <button
+                              type="button"
+                              key={value}
+                              className={`bid-option${isSelectedOption ? ' is-selected' : ''}${isForbiddenOption ? ' is-forbidden' : ''}`}
+                              onClick={() => selectBidForCurrentPlayer(value)}
+                              disabled={isForbiddenOption}
+                              aria-label={`Bid ${value}`}
+                            >
+                              {value}
+                            </button>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
                 );
               })}
+            </div>
+
+            <div className="bidding-turn-actions">
+              <button type="button" onClick={goToPreviousBidder} className="secondary-button" disabled={currentBidTurn === 0}>
+                Back
+              </button>
+              <p className="bidding-turn-status">{biddingComplete ? 'All bids selected' : 'Choose a bid to continue'}</p>
             </div>
           </section>
         )}
