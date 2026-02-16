@@ -284,6 +284,7 @@ function App() {
     }
 
     const completedRounds = gameState.rounds.slice(0, ui.currentRoundIndex + 1);
+    const completedRoundCount = completedRounds.length;
 
     return currentRound.totalsAfterRound
       .map((total, playerIndex) => ({
@@ -291,14 +292,27 @@ function App() {
         total,
         bidTotal: completedRounds.reduce((sum, round) => sum + round.bids[playerIndex], 0),
         tricksTotal: completedRounds.reduce((sum, round) => sum + round.tricksTaken[playerIndex], 0),
+        zeroBidRounds: completedRounds.reduce((sum, round) => sum + (round.bids[playerIndex] === 0 ? 1 : 0), 0),
+        correctBidRounds: completedRounds.reduce(
+          (sum, round) => sum + (round.bids[playerIndex] === round.tricksTaken[playerIndex] ? 1 : 0),
+          0,
+        ),
       }))
       .sort((left, right) => right.total - left.total || left.playerIndex - right.playerIndex)
       .map((entry, index) => ({
         rank: index + 1,
         name: getPlayerName(config, entry.playerIndex),
         total: entry.total,
-        // Running over/under overall: positive means won more tricks than bid overall.
-        overUnder: entry.tricksTotal - entry.bidTotal,
+        bidTotal: entry.bidTotal,
+        tricksTotal: entry.tricksTotal,
+        bidsVsTricksStatus:
+          entry.bidTotal === entry.tricksTotal
+            ? 'balanced'
+            : entry.bidTotal > entry.tricksTotal
+              ? 'bids-over'
+              : 'tricks-over',
+        zeroBidRate: Math.round((entry.zeroBidRounds / completedRoundCount) * 100),
+        correctBidRate: Math.round((entry.correctBidRounds / completedRoundCount) * 100),
       }));
   }, [config, currentRound, gameState.rounds, ui.currentRoundIndex]);
 
@@ -935,24 +949,35 @@ function App() {
             )}
 
             <p className="summary-heading">Leaderboard</p>
-            <div className="leaderboard-list">
-              <div className="leaderboard-row leaderboard-head">
-                <span className="leaderboard-rank">#</span>
-                <span className="leaderboard-name">Player</span>
-                <span className="leaderboard-ou">O/UΣ</span>
-                <span className="leaderboard-score">Total</span>
-              </div>
-              {leaderboard.map((entry) => (
-                <div className="leaderboard-row" key={`${entry.rank}-${entry.name}`}>
-                  <span className="leaderboard-rank">{entry.rank}</span>
-                  <span className="leaderboard-name">{entry.name}</span>
-                  <span className="leaderboard-ou">
-                    {entry.overUnder === 0 ? 'E' : entry.overUnder > 0 ? `O${entry.overUnder}` : `U${Math.abs(entry.overUnder)}`}
-                  </span>
-                  <strong className="leaderboard-score">{entry.total}</strong>
-                </div>
-              ))}
-            </div>
+            <table className="leaderboard-table">
+              <thead>
+                <tr>
+                  <th className="leaderboard-col-rank">#</th>
+                  <th className="leaderboard-col-player">Player</th>
+                  <th className="leaderboard-col-bt">B:T</th>
+                  <th className="leaderboard-col-rate">Z0%</th>
+                  <th className="leaderboard-col-rate">Hit%</th>
+                  <th className="leaderboard-col-score">Tot</th>
+                </tr>
+              </thead>
+              <tbody>
+                {leaderboard.map((entry) => (
+                  <tr key={`${entry.rank}-${entry.name}`}>
+                    <td className="leaderboard-col-rank">{entry.rank}</td>
+                    <td className="leaderboard-col-player">{entry.name}</td>
+                    <td className={`leaderboard-col-bt leaderboard-ou-${entry.bidsVsTricksStatus}`}>
+                      {`${entry.bidTotal}:${entry.tricksTotal}`}
+                      {entry.bidsVsTricksStatus === 'balanced' && <span className="leaderboard-ou-star" aria-hidden="true"> ★</span>}
+                      {entry.bidsVsTricksStatus === 'tricks-over' && <span className="leaderboard-ou-arrow" aria-hidden="true"> ↓</span>}
+                      {entry.bidsVsTricksStatus === 'bids-over' && <span className="leaderboard-ou-arrow" aria-hidden="true"> ↑</span>}
+                    </td>
+                    <td className="leaderboard-col-rate">{entry.zeroBidRate}%</td>
+                    <td className="leaderboard-col-rate">{entry.correctBidRate}%</td>
+                    <td className="leaderboard-col-score">{entry.total}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
 
             {isFinalRound && (
               <>
