@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://tomweiss.github.io/estimation-whist-scorer/sitemap.xml
+Sitemap: https://tom-weiss.github.io/estimation-whist-scorer/sitemap.xml
