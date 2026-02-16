@@ -400,6 +400,20 @@ body {
   justify-content: flex-start;
 }
 
+.playing-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.playing-leaderboard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 42%;
+  overflow: auto;
+}
+
 .form-grid {
   display: grid;
   gap: 5px;
@@ -467,6 +481,11 @@ body {
 .mini-suit-contrast.suit-clubs,
 .mini-suit-contrast.suit-spades {
   color: var(--ink);
+}
+
+.mini-suit-contrast.suit-diamonds,
+.mini-suit-contrast.suit-hearts {
+  color: var(--red-suit);
 }
 
 input,

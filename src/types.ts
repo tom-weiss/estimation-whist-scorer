@@ -17,6 +17,7 @@ export interface RoundState {
   dealerIndex: number;
   bids: number[];
   tricksTaken: number[];
+  trickWinners: number[];
   roundScores: number[];
   totalsAfterRound: number[];
 }

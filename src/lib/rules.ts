@@ -1,8 +1,9 @@
-export type SuitStart = 'clubs' | 'spades';
+export type SuitStart = 'clubs' | 'spades' | 'diamonds';
 export type Suit = 'C' | 'D' | 'H' | 'S' | 'NT';
 
 const SUIT_ORDER_CLUBS_START: Suit[] = ['C', 'D', 'H', 'S', 'NT'];
 const SUIT_ORDER_SPADES_START: Suit[] = ['S', 'H', 'D', 'C', 'NT'];
+const SUIT_ORDER_DIAMONDS_START: Suit[] = ['D', 'S', 'H', 'C', 'NT'];
 
 export const MIN_PLAYERS = 2;
 export const MAX_PLAYERS = 8;
@@ -46,7 +47,12 @@ export function getRoundHandSizes(startingHandSize: number, requestedRounds: num
 }
 
 export function generateSuitCycle(start: SuitStart, roundCount: number): Suit[] {
-  const baseOrder = start === 'clubs' ? SUIT_ORDER_CLUBS_START : SUIT_ORDER_SPADES_START;
+  const baseOrder =
+    start === 'clubs'
+      ? SUIT_ORDER_CLUBS_START
+      : start === 'spades'
+        ? SUIT_ORDER_SPADES_START
+        : SUIT_ORDER_DIAMONDS_START;
   const suits: Suit[] = [];
 
   for (let round = 0; round < roundCount; round += 1) {

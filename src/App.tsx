@@ -47,6 +47,10 @@ function fallbackPlayerName(name: string, index: number): string {
   return trimmed.length > 0 ? trimmed : `Player ${index + 1}`;
 }
 
+function normalizeSuitStart(value: unknown): Config['suitStart'] {
+  return value === 'spades' || value === 'diamonds' ? value : 'clubs';
+}
+
 function createDefaultConfig(): Config {
   return {
     numberOfPlayers: 4,
@@ -89,7 +93,7 @@ function sanitizeConfig(config: Config): Config {
   return {
     numberOfPlayers,
     startingHandSize,
-    suitStart: config.suitStart,
+    suitStart: normalizeSuitStart(config.suitStart),
     playerNames,
     firstDealerIndex,
   };
@@ -107,6 +111,7 @@ function createRounds(config: Config): RoundState[] {
     dealerIndex: getDealerIndex(config.firstDealerIndex, roundIndex, config.numberOfPlayers),
     bids: Array(config.numberOfPlayers).fill(0),
     tricksTaken: Array(config.numberOfPlayers).fill(0),
+    trickWinners: [],
     roundScores: Array(config.numberOfPlayers).fill(0),
     totalsAfterRound: Array(config.numberOfPlayers).fill(0),
   }));
@@ -128,13 +133,28 @@ function readSavedGameState(): GameState | null {
   }
 
   try {
-    const parsed = JSON.parse(raw) as GameState;
+    const parsed = JSON.parse(raw) as Partial<GameState>;
 
     if (!parsed || typeof parsed !== 'object' || !parsed.config || !parsed.ui || !Array.isArray(parsed.rounds)) {
       return null;
     }
     const sanitizedConfig = sanitizeConfig(parsed.config);
-    const activeRound = parsed.rounds[parsed.ui.currentRoundIndex];
+    const rawRounds = parsed.rounds as unknown[];
+    const sanitizedRounds = rawRounds
+      .filter((round): round is Partial<RoundState> => Boolean(round) && typeof round === 'object')
+      .map((round) => ({
+        ...round,
+        trickWinners: Array.isArray(round.trickWinners)
+          ? round.trickWinners.filter(
+              (winnerIndex): winnerIndex is number =>
+                Number.isInteger(winnerIndex) && winnerIndex >= 0 && winnerIndex < sanitizedConfig.numberOfPlayers,
+            )
+          : [],
+      })) as RoundState[];
+    const maxRoundIndex = Math.max(0, sanitizedRounds.length - 1);
+    const currentRoundIndex =
+      typeof parsed.ui.currentRoundIndex === 'number' ? clamp(Math.floor(parsed.ui.currentRoundIndex), 0, maxRoundIndex) : 0;
+    const activeRound = sanitizedRounds[currentRoundIndex];
     const maxBidTurn = activeRound ? sanitizedConfig.numberOfPlayers : 0;
     const currentBidTurn =
       typeof parsed.ui.currentBidTurn === 'number'
@@ -144,11 +164,13 @@ function readSavedGameState(): GameState | null {
     return {
       ...parsed,
       config: sanitizedConfig,
+      rounds: sanitizedRounds,
       ui: {
         ...parsed.ui,
+        currentRoundIndex,
         currentBidTurn,
       },
-    };
+    } as GameState;
   } catch {
     return null;
   }
@@ -178,7 +200,7 @@ function readSavedConfig(): Config | null {
         typeof parsed.numberOfPlayers === 'number' ? parsed.numberOfPlayers : defaultConfig.numberOfPlayers,
       startingHandSize:
         typeof parsed.startingHandSize === 'number' ? parsed.startingHandSize : defaultConfig.startingHandSize,
-      suitStart: parsed.suitStart === 'spades' ? 'spades' : 'clubs',
+      suitStart: normalizeSuitStart(parsed.suitStart),
       playerNames,
       firstDealerIndex:
         typeof parsed.firstDealerIndex === 'number' ? parsed.firstDealerIndex : defaultConfig.firstDealerIndex,
@@ -209,6 +231,7 @@ function App() {
   const [bootState] = useState(() => getBootState());
   const [savedGameState, setSavedGameState] = useState<GameState | null>(bootState.savedGameState);
   const [gameState, setGameState] = useState<GameState>(() => createInitialGameState(bootState.initialConfig));
+  const [showPlayingLeaderboard, setShowPlayingLeaderboard] = useState(false);
 
   useEffect(() => {
     try {
@@ -230,6 +253,12 @@ function App() {
       // Ignore storage failures in unsupported contexts.
     }
   }, [gameState]);
+
+  useEffect(() => {
+    if (gameState.ui.screen !== 'playing') {
+      setShowPlayingLeaderboard(false);
+    }
+  }, [gameState.ui.screen]);
 
   const { config, ui } = gameState;
   const currentRound = gameState.rounds[ui.currentRoundIndex];
@@ -278,7 +307,8 @@ function App() {
     currentRound.bids[lastBidderIndex] === forbiddenLastBid;
 
   const currentSuitGraphic = currentRound ? SUIT_GRAPHIC[currentRound.suit] : null;
-  const setupSuitGraphic = config.suitStart === 'spades' ? SUIT_GRAPHIC.S : SUIT_GRAPHIC.C;
+  const setupSuitGraphic =
+    config.suitStart === 'spades' ? SUIT_GRAPHIC.S : config.suitStart === 'diamonds' ? SUIT_GRAPHIC.D : SUIT_GRAPHIC.C;
   const cardCornerSuitSymbol = currentSuitGraphic ? currentSuitGraphic.symbol : setupSuitGraphic.symbol;
   const cardCornerSuitClassName = currentSuitGraphic ? currentSuitGraphic.className : setupSuitGraphic.className;
   const leaderboard = useMemo(() => {
@@ -288,8 +318,7 @@ function App() {
 
     const completedRounds = gameState.rounds.slice(0, ui.currentRoundIndex + 1);
     const completedRoundCount = completedRounds.length;
-
-    return currentRound.totalsAfterRound
+    const sortedEntries = currentRound.totalsAfterRound
       .map((total, playerIndex) => ({
         playerIndex,
         total,
@@ -301,9 +330,24 @@ function App() {
           0,
         ),
       }))
-      .sort((left, right) => right.total - left.total || left.playerIndex - right.playerIndex)
-      .map((entry, index) => ({
-        rank: index + 1,
+      .sort((left, right) => right.total - left.total || left.playerIndex - right.playerIndex);
+    const totalCounts = sortedEntries.reduce((counts, entry) => {
+      counts.set(entry.total, (counts.get(entry.total) ?? 0) + 1);
+      return counts;
+    }, new Map<number, number>());
+
+    let currentRank = 0;
+
+    return sortedEntries.map((entry, index) => {
+      if (index === 0 || sortedEntries[index - 1].total !== entry.total) {
+        currentRank = index + 1;
+      }
+
+      const isTied = (totalCounts.get(entry.total) ?? 0) > 1;
+
+      return {
+        rank: currentRank,
+        rankLabel: `${currentRank}${isTied ? '=' : ''}`,
         name: getPlayerName(config, entry.playerIndex),
         total: entry.total,
         bidTotal: entry.bidTotal,
@@ -316,8 +360,11 @@ function App() {
               : 'tricks-over',
         zeroBidRate: Math.round((entry.zeroBidRounds / completedRoundCount) * 100),
         correctBidRate: Math.round((entry.correctBidRounds / completedRoundCount) * 100),
-      }));
+      };
+    });
   }, [config, currentRound, gameState.rounds, ui.currentRoundIndex]);
+  const canUndoLastTrick =
+    ui.screen === 'playing' && currentRound !== undefined && currentRound.trickWinners.length > 0;
 
   const headerLine = useMemo(() => {
     if (ui.screen === 'config' || !currentRound) {
@@ -516,8 +563,15 @@ function App() {
         return previousState;
       }
 
+      const nextRounds = [...previousState.rounds];
+      nextRounds[previousState.ui.currentRoundIndex] = {
+        ...round,
+        trickWinners: [],
+      };
+
       return {
         ...previousState,
+        rounds: nextRounds,
         ui: {
           ...previousState.ui,
           screen: 'playing',
@@ -533,12 +587,13 @@ function App() {
       const roundIndex = previousState.ui.currentRoundIndex;
       const round = previousState.rounds[roundIndex];
 
-      if (!round) {
+      if (!round || winnerIndex < 0 || winnerIndex >= previousState.config.numberOfPlayers) {
         return previousState;
       }
 
       const nextTricksTaken = [...round.tricksTaken];
       nextTricksTaken[winnerIndex] += 1;
+      const nextTrickWinners = [...round.trickWinners, winnerIndex];
 
       const nextRounds = [...previousState.rounds];
       const roundCompleted = previousState.ui.currentTrick >= round.handSize;
@@ -546,6 +601,7 @@ function App() {
       let updatedRound: RoundState = {
         ...round,
         tricksTaken: nextTricksTaken,
+        trickWinners: nextTrickWinners,
       };
 
       let nextUI: UIState = {
@@ -584,6 +640,52 @@ function App() {
         ...previousState,
         rounds: nextRounds,
         ui: nextUI,
+      };
+    });
+  }
+
+  function undoLastTrick() {
+    setGameState((previousState) => {
+      if (previousState.ui.screen !== 'playing') {
+        return previousState;
+      }
+
+      const roundIndex = previousState.ui.currentRoundIndex;
+      const round = previousState.rounds[roundIndex];
+
+      if (!round || round.trickWinners.length === 0) {
+        return previousState;
+      }
+
+      const undoneWinnerIndex = round.trickWinners[round.trickWinners.length - 1];
+
+      if (undoneWinnerIndex === undefined) {
+        return previousState;
+      }
+
+      const nextTricksTaken = [...round.tricksTaken];
+      nextTricksTaken[undoneWinnerIndex] = Math.max(0, nextTricksTaken[undoneWinnerIndex] - 1);
+      const nextTrickWinners = round.trickWinners.slice(0, -1);
+      const leaderBeforeUndoneTrick =
+        nextTrickWinners.length > 0
+          ? nextTrickWinners[nextTrickWinners.length - 1]
+          : getFirstLeaderIndex(round.dealerIndex, previousState.config.numberOfPlayers);
+
+      const nextRounds = [...previousState.rounds];
+      nextRounds[roundIndex] = {
+        ...round,
+        tricksTaken: nextTricksTaken,
+        trickWinners: nextTrickWinners,
+      };
+
+      return {
+        ...previousState,
+        rounds: nextRounds,
+        ui: {
+          ...previousState.ui,
+          currentTrick: Math.max(1, previousState.ui.currentTrick - 1),
+          currentLeaderIndex: leaderBeforeUndoneTrick,
+        },
       };
     });
   }
@@ -683,6 +785,7 @@ function App() {
             dealerIndex: firstRound ? firstRound.dealerIndex : previousState.config.firstDealerIndex,
             bids: Array(playerCount).fill(0),
             tricksTaken: Array(playerCount).fill(0),
+            trickWinners: [],
             roundScores: Array(playerCount).fill(0),
             totalsAfterRound: zeroTotals,
           },
@@ -713,6 +816,40 @@ function App() {
       rounds: [],
       ui: createDefaultUI(),
     }));
+  }
+
+  function renderLeaderboardTable() {
+    return (
+      <table className="table-felt leaderboard-table">
+        <thead>
+          <tr>
+            <th className="leaderboard-col-rank">#</th>
+            <th className="leaderboard-col-player">Player</th>
+            <th className="leaderboard-col-bt">B:T</th>
+            <th className="leaderboard-col-rate">Z0%</th>
+            <th className="leaderboard-col-rate">Hit%</th>
+            <th className="leaderboard-col-score">Tot</th>
+          </tr>
+        </thead>
+        <tbody>
+          {leaderboard.map((entry) => (
+            <tr key={`${entry.rank}-${entry.name}`}>
+              <td className="leaderboard-col-rank">{entry.rankLabel}</td>
+              <td className="leaderboard-col-player">{entry.name}</td>
+              <td className={`leaderboard-col-bt leaderboard-ou-${entry.bidsVsTricksStatus}`}>
+                {`${entry.bidTotal}:${entry.tricksTotal}`}
+                {entry.bidsVsTricksStatus === 'balanced' && <span className="leaderboard-ou-star" aria-hidden="true"> ★</span>}
+                {entry.bidsVsTricksStatus === 'tricks-over' && <span className="leaderboard-ou-arrow" aria-hidden="true"> ↓</span>}
+                {entry.bidsVsTricksStatus === 'bids-over' && <span className="leaderboard-ou-arrow" aria-hidden="true"> ↑</span>}
+              </td>
+              <td className="leaderboard-col-rate">{entry.zeroBidRate}%</td>
+              <td className="leaderboard-col-rate">{entry.correctBidRate}%</td>
+              <td className="leaderboard-col-score">{entry.total}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
   }
 
   const isFinalRound = ui.currentRoundIndex >= gameState.rounds.length - 1;
@@ -757,23 +894,20 @@ function App() {
               <label className="field">
                 <span className="field-inline">
                   Start suit
-                  <span className={`mini-suit mini-suit-contrast ${config.suitStart === 'clubs' ? 'suit-clubs' : 'suit-spades'}`}>
-                    {config.suitStart === 'clubs' ? '♧' : '♤'}
-                  </span>
+                  <span className={`mini-suit mini-suit-contrast ${setupSuitGraphic.className}`}>{setupSuitGraphic.symbol}</span>
                 </span>
                 <select
                   value={config.suitStart}
                   onChange={(event) => {
-                    const nextSuitStart = event.target.value === 'spades' ? 'spades' : 'clubs';
-
                     updateConfig((currentConfig) => ({
                       ...currentConfig,
-                      suitStart: nextSuitStart,
+                      suitStart: normalizeSuitStart(event.target.value),
                     }));
                   }}
                 >
-                  <option value="clubs">♧ Clubs</option>
-                  <option value="spades">♤ Spades</option>
+                  <option value="clubs">♣ Clubs (C-D-H-S-NT)</option>
+                  <option value="spades">♠ Spades (S-H-D-C-NT)</option>
+                  <option value="diamonds">♦ Diamonds (D-S-H-C-NT)</option>
                 </select>
               </label>
             </div>
@@ -911,7 +1045,7 @@ function App() {
 
             <div className="bidding-turn-actions">
               <button type="button" onClick={goToPreviousBidder} className="secondary-button" disabled={currentBidTurn === 0}>
-                Back
+                Undo
               </button>
               <p className="bidding-turn-status">{biddingComplete ? 'All bids selected' : 'Choose a bid to continue'}</p>
             </div>
@@ -921,6 +1055,22 @@ function App() {
         {ui.screen === 'playing' && currentRound && (
           <section className="panel playing-panel">
             <p className="subtitle">Who wins the trick?</p>
+            <div className="playing-controls">
+              <button type="button" onClick={undoLastTrick} className="secondary-button" disabled={!canUndoLastTrick}>
+                Undo
+              </button>
+              <button type="button" onClick={() => setShowPlayingLeaderboard((current) => !current)} className="secondary-button">
+                {showPlayingLeaderboard ? 'Hide Leaderboard' : 'Show Leaderboard'}
+              </button>
+            </div>
+
+            {showPlayingLeaderboard && (
+              <div className="playing-leaderboard">
+                <p className="summary-heading">Current Leaderboard</p>
+                {renderLeaderboardTable()}
+              </div>
+            )}
+
             <div className="winner-grid">
               {config.playerNames.map((_, index) => {
                 const tricksSoFar = currentRound.tricksTaken[index];
@@ -996,35 +1146,7 @@ function App() {
             )}
 
             <p className="summary-heading">Leaderboard</p>
-            <table className="table-felt leaderboard-table">
-              <thead>
-                <tr>
-                  <th className="leaderboard-col-rank">#</th>
-                  <th className="leaderboard-col-player">Player</th>
-                  <th className="leaderboard-col-bt">B:T</th>
-                  <th className="leaderboard-col-rate">Z0%</th>
-                  <th className="leaderboard-col-rate">Hit%</th>
-                  <th className="leaderboard-col-score">Tot</th>
-                </tr>
-              </thead>
-              <tbody>
-                {leaderboard.map((entry) => (
-                  <tr key={`${entry.rank}-${entry.name}`}>
-                    <td className="leaderboard-col-rank">{entry.rank}</td>
-                    <td className="leaderboard-col-player">{entry.name}</td>
-                    <td className={`leaderboard-col-bt leaderboard-ou-${entry.bidsVsTricksStatus}`}>
-                      {`${entry.bidTotal}:${entry.tricksTotal}`}
-                      {entry.bidsVsTricksStatus === 'balanced' && <span className="leaderboard-ou-star" aria-hidden="true"> ★</span>}
-                      {entry.bidsVsTricksStatus === 'tricks-over' && <span className="leaderboard-ou-arrow" aria-hidden="true"> ↓</span>}
-                      {entry.bidsVsTricksStatus === 'bids-over' && <span className="leaderboard-ou-arrow" aria-hidden="true"> ↑</span>}
-                    </td>
-                    <td className="leaderboard-col-rate">{entry.zeroBidRate}%</td>
-                    <td className="leaderboard-col-rate">{entry.correctBidRate}%</td>
-                    <td className="leaderboard-col-score">{entry.total}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {renderLeaderboardTable()}
 
             {isFinalRound && (
               <>

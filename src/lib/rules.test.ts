@@ -54,6 +54,10 @@ describe('suit cycle generation', () => {
   it('uses spades-start order with NT last', () => {
     expect(generateSuitCycle('spades', 6)).toEqual(['S', 'H', 'D', 'C', 'NT', 'S']);
   });
+
+  it('uses diamonds-start order with NT last', () => {
+    expect(generateSuitCycle('diamonds', 7)).toEqual(['D', 'S', 'H', 'C', 'NT', 'D', 'S']);
+  });
 });
 
 describe('last-bid constraint', () => {

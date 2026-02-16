@@ -14,6 +14,13 @@ function completeBiddingWithZero(numberOfPlayers: number) {
   }
 }
 
+function startPlayingRound() {
+  fillRequiredNames();
+  fireEvent.click(screen.getByRole('button', { name: 'Start Game' }));
+  completeBiddingWithZero(4);
+  fireEvent.click(screen.getByRole('button', { name: 'Start Playing' }));
+}
+
 describe('App', () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -62,5 +69,47 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: /wins by \d+$/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Quit Game' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Next Round' })).toBeInTheDocument();
+  });
+
+  it('renames the bidding back button to Undo', () => {
+    render(<App />);
+
+    fillRequiredNames();
+    fireEvent.click(screen.getByRole('button', { name: 'Start Game' }));
+
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
+  });
+
+  it('allows undoing a recorded trick during play', () => {
+    render(<App />);
+
+    startPlayingRound();
+
+    const undoButton = screen.getByRole('button', { name: 'Undo' });
+    expect(screen.getByRole('heading', { name: 'Jane to lead' })).toBeInTheDocument();
+    expect(undoButton).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: /Tom/ }));
+    expect(screen.getByRole('heading', { name: 'Tom to lead' })).toBeInTheDocument();
+    expect(undoButton).not.toBeDisabled();
+
+    fireEvent.click(undoButton);
+    expect(screen.getByRole('heading', { name: 'Jane to lead' })).toBeInTheDocument();
+    expect(undoButton).toBeDisabled();
+  });
+
+  it('toggles the current leaderboard on the playing screen', () => {
+    render(<App />);
+
+    startPlayingRound();
+
+    expect(screen.queryByText('Current Leaderboard')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show Leaderboard' }));
+    expect(screen.getByText('Current Leaderboard')).toBeInTheDocument();
+    expect(screen.getAllByText('1=')).toHaveLength(4);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide Leaderboard' }));
+    expect(screen.queryByText('Current Leaderboard')).not.toBeInTheDocument();
   });
 });
