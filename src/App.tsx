@@ -231,7 +231,7 @@ function App() {
   const [bootState] = useState(() => getBootState());
   const [savedGameState, setSavedGameState] = useState<GameState | null>(bootState.savedGameState);
   const [gameState, setGameState] = useState<GameState>(() => createInitialGameState(bootState.initialConfig));
-  const [showPlayingLeaderboard, setShowPlayingLeaderboard] = useState(false);
+  const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
 
   useEffect(() => {
     try {
@@ -255,8 +255,8 @@ function App() {
   }, [gameState]);
 
   useEffect(() => {
-    if (gameState.ui.screen !== 'playing') {
-      setShowPlayingLeaderboard(false);
+    if (gameState.ui.screen === 'config') {
+      setShowLeaderboardModal(false);
     }
   }, [gameState.ui.screen]);
 
@@ -316,9 +316,14 @@ function App() {
       return [];
     }
 
-    const completedRounds = gameState.rounds.slice(0, ui.currentRoundIndex + 1);
+    const lastCompletedRoundIndex = ui.screen === 'summary' ? ui.currentRoundIndex : ui.currentRoundIndex - 1;
+    const completedRounds = lastCompletedRoundIndex >= 0 ? gameState.rounds.slice(0, lastCompletedRoundIndex + 1) : [];
     const completedRoundCount = completedRounds.length;
-    const sortedEntries = currentRound.totalsAfterRound
+    const totalsByPlayer =
+      lastCompletedRoundIndex >= 0
+        ? gameState.rounds[lastCompletedRoundIndex].totalsAfterRound
+        : Array(config.numberOfPlayers).fill(0);
+    const sortedEntries = totalsByPlayer
       .map((total, playerIndex) => ({
         playerIndex,
         total,
@@ -358,13 +363,41 @@ function App() {
             : entry.bidTotal > entry.tricksTotal
               ? 'bids-over'
               : 'tricks-over',
-        zeroBidRate: Math.round((entry.zeroBidRounds / completedRoundCount) * 100),
-        correctBidRate: Math.round((entry.correctBidRounds / completedRoundCount) * 100),
+        zeroBidRate: completedRoundCount > 0 ? Math.round((entry.zeroBidRounds / completedRoundCount) * 100) : 0,
+        correctBidRate: completedRoundCount > 0 ? Math.round((entry.correctBidRounds / completedRoundCount) * 100) : 0,
       };
     });
-  }, [config, currentRound, gameState.rounds, ui.currentRoundIndex]);
-  const canUndoLastTrick =
-    ui.screen === 'playing' && currentRound !== undefined && currentRound.trickWinners.length > 0;
+  }, [config, currentRound, gameState.rounds, ui.currentRoundIndex, ui.screen]);
+
+  const roundSummaryRows = useMemo(() => {
+    if (!currentRound) {
+      return [];
+    }
+
+    return config.playerNames
+      .map((_, playerIndex) => ({
+        playerIndex,
+        name: getPlayerName(config, playerIndex),
+        bid: currentRound.bids[playerIndex],
+        tricks: currentRound.tricksTaken[playerIndex],
+        score: currentRound.roundScores[playerIndex],
+      }))
+      .sort((left, right) => right.score - left.score || right.tricks - left.tricks || left.playerIndex - right.playerIndex);
+  }, [config, currentRound]);
+
+  const canUndoBid = ui.screen === 'bidding' && ui.currentBidTurn > 0;
+  const canUndoPlayingTrick = ui.screen === 'playing' && currentRound !== undefined;
+  const canUndoSummaryTrick = ui.screen === 'summary' && currentRound !== undefined && currentRound.trickWinners.length > 0;
+  const canUndo = canUndoBid || canUndoPlayingTrick || canUndoSummaryTrick;
+  const canShowHeaderTools = ui.screen !== 'config' && currentRound !== undefined;
+
+  useEffect(() => {
+    if (ui.screen !== 'bidding' || !biddingComplete || !biddingStateIsValid) {
+      return;
+    }
+
+    beginPlaying();
+  }, [biddingComplete, biddingStateIsValid, ui.screen]);
 
   const headerLine = useMemo(() => {
     if (ui.screen === 'config' || !currentRound) {
@@ -525,24 +558,12 @@ function App() {
     });
   }
 
-  function goToPreviousBidder() {
+  function beginPlaying() {
     setGameState((previousState) => {
-      if (previousState.ui.currentBidTurn <= 0) {
+      if (previousState.ui.screen !== 'bidding') {
         return previousState;
       }
 
-      return {
-        ...previousState,
-        ui: {
-          ...previousState.ui,
-          currentBidTurn: previousState.ui.currentBidTurn - 1,
-        },
-      };
-    });
-  }
-
-  function beginPlaying() {
-    setGameState((previousState) => {
       const round = previousState.rounds[previousState.ui.currentRoundIndex];
 
       if (!round) {
@@ -644,16 +665,50 @@ function App() {
     });
   }
 
-  function undoLastTrick() {
+  function undoGameAction() {
     setGameState((previousState) => {
-      if (previousState.ui.screen !== 'playing') {
+      if (previousState.ui.screen === 'bidding') {
+        if (previousState.ui.currentBidTurn <= 0) {
+          return previousState;
+        }
+
+        return {
+          ...previousState,
+          ui: {
+            ...previousState.ui,
+            currentBidTurn: previousState.ui.currentBidTurn - 1,
+          },
+        };
+      }
+
+      if (previousState.ui.screen !== 'playing' && previousState.ui.screen !== 'summary') {
         return previousState;
       }
 
       const roundIndex = previousState.ui.currentRoundIndex;
       const round = previousState.rounds[roundIndex];
 
-      if (!round || round.trickWinners.length === 0) {
+      if (!round) {
+        return previousState;
+      }
+
+      if (previousState.ui.screen === 'playing' && round.trickWinners.length === 0) {
+        const biddingOrder = getBiddingOrder(round.dealerIndex, previousState.config.numberOfPlayers);
+        const lastBidTurn = Math.max(0, biddingOrder.length - 1);
+
+        return {
+          ...previousState,
+          ui: {
+            ...previousState.ui,
+            screen: 'bidding',
+            currentBidTurn: lastBidTurn,
+            currentTrick: 1,
+            currentLeaderIndex: getFirstLeaderIndex(round.dealerIndex, previousState.config.numberOfPlayers),
+          },
+        };
+      }
+
+      if (round.trickWinners.length === 0) {
         return previousState;
       }
 
@@ -672,10 +727,14 @@ function App() {
           : getFirstLeaderIndex(round.dealerIndex, previousState.config.numberOfPlayers);
 
       const nextRounds = [...previousState.rounds];
+      const zeroScores = Array(previousState.config.numberOfPlayers).fill(0);
+      const previousTotals = roundIndex === 0 ? zeroScores : previousState.rounds[roundIndex - 1].totalsAfterRound;
       nextRounds[roundIndex] = {
         ...round,
         tricksTaken: nextTricksTaken,
         trickWinners: nextTrickWinners,
+        roundScores: previousState.ui.screen === 'summary' ? zeroScores : round.roundScores,
+        totalsAfterRound: previousState.ui.screen === 'summary' ? previousTotals : round.totalsAfterRound,
       };
 
       return {
@@ -683,7 +742,11 @@ function App() {
         rounds: nextRounds,
         ui: {
           ...previousState.ui,
-          currentTrick: Math.max(1, previousState.ui.currentTrick - 1),
+          screen: 'playing',
+          currentTrick:
+            previousState.ui.screen === 'summary'
+              ? round.handSize
+              : Math.max(1, previousState.ui.currentTrick - 1),
           currentLeaderIndex: leaderBeforeUndoneTrick,
         },
       };
@@ -852,11 +915,66 @@ function App() {
     );
   }
 
+  function renderLeaderboardModal() {
+    if (!showLeaderboardModal || !canShowHeaderTools) {
+      return null;
+    }
+
+    return (
+      <div className="leaderboard-modal-backdrop" role="presentation" onClick={() => setShowLeaderboardModal(false)}>
+        <section
+          className="leaderboard-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Current leaderboard"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="leaderboard-modal-header">
+            <p className="summary-heading">Current Leaderboard</p>
+            <button
+              type="button"
+              onClick={() => setShowLeaderboardModal(false)}
+              className="secondary-button leaderboard-modal-close"
+              aria-label="Close leaderboard"
+              title="Close leaderboard"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="leaderboard-modal-content">{renderLeaderboardTable()}</div>
+        </section>
+      </div>
+    );
+  }
+
   const isFinalRound = ui.currentRoundIndex >= gameState.rounds.length - 1;
   return (
     <div className="app-shell">
-      <header className="app-header">
+      <header className={`app-header${canShowHeaderTools ? ' is-game-header' : ''}`}>
         <h1 className="app-title">{headerLine}</h1>
+        {canShowHeaderTools && (
+          <div className="header-game-actions">
+            <button
+              type="button"
+              onClick={undoGameAction}
+              className="secondary-button header-icon-button"
+              disabled={!canUndo}
+              aria-label="Undo"
+              title="Undo"
+            >
+              ↶
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowLeaderboardModal((current) => !current)}
+              className="secondary-button header-icon-button"
+              aria-label={showLeaderboardModal ? 'Hide Leaderboard' : 'Show Leaderboard'}
+              title={showLeaderboardModal ? 'Hide Leaderboard' : 'Show Leaderboard'}
+            >
+              🏆
+            </button>
+          </div>
+        )}
       </header>
 
       <main className={`app-content screen-${ui.screen}`}>
@@ -1043,33 +1161,13 @@ function App() {
               })}
             </div>
 
-            <div className="bidding-turn-actions">
-              <button type="button" onClick={goToPreviousBidder} className="secondary-button" disabled={currentBidTurn === 0}>
-                Undo
-              </button>
-              <p className="bidding-turn-status">{biddingComplete ? 'All bids selected' : 'Choose a bid to continue'}</p>
-            </div>
+            <p className="bidding-turn-status">{biddingComplete ? 'All bids selected' : 'Choose a bid to continue'}</p>
           </section>
         )}
 
         {ui.screen === 'playing' && currentRound && (
           <section className="panel playing-panel">
             <p className="subtitle">Who wins the trick?</p>
-            <div className="playing-controls">
-              <button type="button" onClick={undoLastTrick} className="secondary-button" disabled={!canUndoLastTrick}>
-                Undo
-              </button>
-              <button type="button" onClick={() => setShowPlayingLeaderboard((current) => !current)} className="secondary-button">
-                {showPlayingLeaderboard ? 'Hide Leaderboard' : 'Show Leaderboard'}
-              </button>
-            </div>
-
-            {showPlayingLeaderboard && (
-              <div className="playing-leaderboard">
-                <p className="summary-heading">Current Leaderboard</p>
-                {renderLeaderboardTable()}
-              </div>
-            )}
 
             <div className="winner-grid">
               {config.playerNames.map((_, index) => {
@@ -1132,12 +1230,12 @@ function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {config.playerNames.map((_, playerIndex) => (
-                      <tr key={playerIndex}>
-                        <td>{getPlayerName(config, playerIndex)}</td>
-                        <td>{currentRound.bids[playerIndex]}</td>
-                        <td>{currentRound.tricksTaken[playerIndex]}</td>
-                        <td>{currentRound.roundScores[playerIndex]}</td>
+                    {roundSummaryRows.map((entry) => (
+                      <tr key={entry.playerIndex}>
+                        <td>{entry.name}</td>
+                        <td>{entry.bid}</td>
+                        <td>{entry.tricks}</td>
+                        <td>{entry.score}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1145,12 +1243,12 @@ function App() {
               </>
             )}
 
-            <p className="summary-heading">Leaderboard</p>
-            {renderLeaderboardTable()}
-
             {isFinalRound && (
               <>
-                <p className="summary-heading">Game Summary By Round</p>
+                <p className="summary-heading">Leaderboard</p>
+                {renderLeaderboardTable()}
+
+                <p className="summary-heading">Scores for that round</p>
                 <table className="table-felt game-summary-table">
                   <thead>
                     <tr>
@@ -1212,13 +1310,9 @@ function App() {
         )}
 
         {ui.screen === 'bidding' && (
-          <div className="footer-actions config-two-col">
+          <div className="footer-actions">
             <button type="button" onClick={quitGame} className="secondary-button">
               Quit Game
-            </button>
-
-            <button type="button" className="primary-action" onClick={beginPlaying} disabled={!biddingStateIsValid}>
-              Start Playing
             </button>
           </div>
         )}
@@ -1254,6 +1348,8 @@ function App() {
           </div>
         )}
       </footer>
+
+      {renderLeaderboardModal()}
     </div>
   );
 }

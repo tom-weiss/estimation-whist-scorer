@@ -121,6 +121,11 @@ body {
   justify-content: center;
 }
 
+.app-header.is-game-header {
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .app-title {
   margin: 0;
   font-family: 'Arial Narrow', 'Trebuchet MS', sans-serif;
@@ -131,6 +136,34 @@ body {
   color: var(--ink);
   overflow-wrap: break-word;
   text-align: center;
+}
+
+.app-header.is-game-header .app-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+}
+
+.header-game-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.header-icon-button {
+  width: 40px;
+  min-height: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 8px;
+  font-size: 1.26rem;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .subtitle {
@@ -400,18 +433,53 @@ body {
   justify-content: flex-start;
 }
 
-.playing-controls {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+.leaderboard-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(3, 17, 12, 0.62);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
 }
 
-.playing-leaderboard {
+.leaderboard-modal {
+  width: min(680px, 100%);
+  max-height: min(78vh, 680px);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(7, 42, 33, 0.96), rgba(6, 31, 24, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 20px 42px rgba(4, 11, 9, 0.5);
+  padding: 9px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  max-height: 42%;
+  gap: 8px;
+}
+
+.leaderboard-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.leaderboard-modal-close {
+  width: 34px;
+  min-height: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 9px;
+  font-size: 0.86rem;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.leaderboard-modal-content {
   overflow: auto;
+  max-height: min(60vh, 520px);
 }
 
 .form-grid {
@@ -621,7 +689,7 @@ button:disabled {
 .bid-option::after {
   content: attr(data-suit);
   position: absolute;
-  font-size: 0.56rem;
+  font-size: 0.64rem;
   line-height: 1;
   font-weight: 800;
   opacity: 0.9;
@@ -866,9 +934,9 @@ button:disabled {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   gap: 9px;
-  padding: 12px 10px 10px;
+  padding: 10px;
   height: 100%;
   border-radius: 14px;
   text-transform: none;
@@ -933,7 +1001,7 @@ button:disabled {
 .winner-mini-card::after {
   content: attr(data-suit);
   position: absolute;
-  font-size: 0.6rem;
+  font-size: 0.74rem;
   line-height: 1;
   font-weight: 800;
   letter-spacing: 0.02em;
@@ -1324,6 +1392,17 @@ button:disabled {
   .header-top {
     align-items: flex-start;
     gap: 6px;
+  }
+
+  .header-game-actions {
+    gap: 4px;
+  }
+
+  .header-icon-button {
+    width: 34px;
+    min-height: 34px;
+    height: 34px;
+    font-size: 1.05rem;
   }
 
   .config-main-fields {
