@@ -406,8 +406,13 @@ button:disabled {
 }
 
 .player-name {
-  font-size: 0.85rem;
+  min-width: 0;
+  font-size: clamp(0.95rem, 2.4vh, 1.15rem);
+  line-height: 1.05;
   font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .stepper {
@@ -422,12 +427,15 @@ button:disabled {
   width: 100%;
   min-width: 44px;
   padding: 0;
+  font-size: clamp(1rem, 2.6vh, 1.25rem);
+  font-weight: 800;
 }
 
 .stepper-value {
   min-width: 28px;
   text-align: center;
-  font-size: 1rem;
+  font-size: clamp(1.05rem, 2.8vh, 1.32rem);
+  line-height: 1;
   font-weight: 700;
 }
 
@@ -458,41 +466,50 @@ button:disabled {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 4px 6px;
+  gap: 7px;
+  padding: 6px 8px;
   height: 100%;
 }
 
 .winner-name {
   width: 100%;
-  font-size: 0.78rem;
-  line-height: 1.05;
+  font-size: clamp(0.8rem, 1.85vh, 1rem);
+  line-height: 1.08;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  opacity: 0.95;
 }
 
 .winner-progress {
-  font-size: 0.67rem;
+  min-width: min(86%, 180px);
+  text-align: center;
+  font-size: clamp(1rem, 2.9vh, 1.4rem);
   line-height: 1;
-  font-weight: 700;
-  border-radius: 999px;
-  padding: 2px 7px;
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  background: rgba(255, 255, 255, 0.18);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  border-radius: 10px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(21, 20, 15, 0.15);
 }
 
 .winner-progress.is-under {
-  background: rgba(255, 243, 211, 0.24);
+  color: #fef7de;
+  background: linear-gradient(180deg, #ad7725, #8f631e);
 }
 
 .winner-progress.is-on {
-  background: rgba(211, 255, 225, 0.24);
+  color: #ecfff4;
+  background: linear-gradient(180deg, #1f7a47, #16663a);
 }
 
 .winner-progress.is-over {
-  background: rgba(255, 219, 219, 0.24);
+  color: #fff0ef;
+  background: linear-gradient(180deg, #a53430, #852722);
 }
 
 .summary-panel {
@@ -764,7 +781,7 @@ button:disabled {
   }
 
   .stepper-value {
-    width: 24px;
+    min-width: 26px;
   }
 
   .field span {

@@ -818,8 +818,8 @@ function App() {
 
                 return (
                   <button key={index} type="button" className="winner-button" onClick={() => recordTrickWinner(index)}>
-                    <span className="winner-name">{getPlayerName(config, index)}</span>
                     <span className={`winner-progress ${progressClass}`}>{`${tricksSoFar}/${contract}`}</span>
+                    <span className="winner-name">{getPlayerName(config, index)}</span>
                   </button>
                 );
               })}
