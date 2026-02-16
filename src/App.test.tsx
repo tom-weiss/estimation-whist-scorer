@@ -37,10 +37,10 @@ describe('App', () => {
     fillRequiredNames();
 
     fireEvent.click(screen.getByRole('button', { name: 'Start Game' }));
-    expect(screen.getByRole('heading', { name: 'Tom to deal 7 cards' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Tom to deal 7 cards for Clubs' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Quit Game' })).toBeInTheDocument();
     completeBiddingWithZero(4);
-    expect(screen.getByRole('heading', { name: 'Jane to lead' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '7 hands to go: Jane to lead' })).toBeInTheDocument();
 
     const quitButton = screen.getByRole('button', { name: 'Quit Game' });
     expect(quitButton).toBeInTheDocument();
@@ -86,19 +86,19 @@ describe('App', () => {
     startPlayingRound();
 
     const undoButton = screen.getByRole('button', { name: 'Undo' });
-    expect(screen.getByRole('heading', { name: 'Jane to lead' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '7 hands to go: Jane to lead' })).toBeInTheDocument();
     expect(undoButton).not.toBeDisabled();
 
     fireEvent.click(undoButton);
-    expect(screen.getByRole('heading', { name: 'Tom to deal 7 cards' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Tom to deal 7 cards for Clubs' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Bid 0' }));
-    expect(screen.getByRole('heading', { name: 'Jane to lead' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '7 hands to go: Jane to lead' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Tom/ }));
-    expect(screen.getByRole('heading', { name: 'Tom to lead' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '6 hands to go: Tom to lead' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
-    expect(screen.getByRole('heading', { name: 'Jane to lead' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '7 hands to go: Jane to lead' })).toBeInTheDocument();
   });
 
   it('toggles the current leaderboard on the playing screen', () => {

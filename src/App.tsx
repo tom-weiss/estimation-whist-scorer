@@ -405,11 +405,14 @@ function App() {
     }
 
     if (ui.screen === 'bidding') {
-      return `${getPlayerName(config, currentRound.dealerIndex)} to deal ${currentRound.handSize} cards`;
+      return `${getPlayerName(config, currentRound.dealerIndex)} to deal ${currentRound.handSize} cards for ${
+        SUIT_GRAPHIC[currentRound.suit].label
+      }`;
     }
 
     if (ui.screen === 'playing') {
-      return `${getPlayerName(config, ui.currentLeaderIndex)} to lead`;
+      const handsToGo = Math.max(1, currentRound.handSize - ui.currentTrick + 1);
+      return `${handsToGo} hands to go: ${getPlayerName(config, ui.currentLeaderIndex)} to lead`;
     }
 
     const winner = leaderboard[0];
@@ -418,7 +421,7 @@ function App() {
     const winningName = winner ? winner.name : getPlayerName(config, 0);
 
     return `${winningName} wins by ${winningMargin}`;
-  }, [config, currentRound, leaderboard, ui.currentLeaderIndex, ui.screen]);
+  }, [config, currentRound, leaderboard, ui.currentLeaderIndex, ui.currentTrick, ui.screen]);
 
   function getRoleTokens(playerIndex: number): Array<{ key: string; label: string; title: string }> {
     const tokens: Array<{ key: string; label: string; title: string }> = [];
