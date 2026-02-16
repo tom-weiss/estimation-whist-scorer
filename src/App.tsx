@@ -672,7 +672,7 @@ function App() {
       <header className="app-header">
         <div className="header-top">
           <div className="header-title-block">
-            <h1 className="app-title">{`Estimation Whist Scorer: ${screenLabel}`}</h1>
+            <h1 className="app-title">{screenLabel}</h1>
             {ui.screen === 'config' && <p className="version-label">Version {APP_VERSION}</p>}
           </div>
 
