@@ -89,10 +89,15 @@ body {
 }
 
 .header-badges {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
   align-items: stretch;
   gap: 5px;
-  flex: 0 0 auto;
+  flex: 0 1 118px;
+  min-width: 104px;
+  max-width: 118px;
+  width: 100%;
+  min-height: 0;
 }
 
 .header-hint {
@@ -108,7 +113,6 @@ body {
 }
 
 .suit-card {
-  flex: 0 0 64px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: #fbf2e3;
@@ -118,10 +122,11 @@ body {
   justify-content: center;
   gap: 2px;
   padding: 5px 4px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .hand-card {
-  flex: 0 0 54px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: #efe5d4;
@@ -132,6 +137,8 @@ body {
   gap: 1px;
   padding: 5px 4px;
   color: #2d2a20;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .hand-label {
@@ -760,14 +767,8 @@ button:disabled {
 
   .header-badges {
     gap: 4px;
-  }
-
-  .suit-card {
-    flex-basis: 58px;
-  }
-
-  .hand-card {
-    flex-basis: 48px;
+    min-width: 96px;
+    max-width: 108px;
   }
 
   .hand-label,
@@ -795,14 +796,6 @@ button:disabled {
 
   .header-info-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .suit-card {
-    flex-basis: 52px;
-  }
-
-  .hand-card {
-    flex-basis: 44px;
   }
 
   .hand-value {

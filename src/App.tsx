@@ -19,7 +19,7 @@ import type { Config, GameState, RoundState, UIState } from './types';
 
 const STORAGE_RESUME_KEY = 'estimation-whist-scorer-resume-state';
 const STORAGE_CONFIG_KEY = 'estimation-whist-scorer-last-config';
-const APP_VERSION = '1.1.0';
+const APP_VERSION = __APP_VERSION__;
 const SUIT_GRAPHIC: Record<RoundState['suit'], { label: string; symbol: string; className: string }> = {
   C: { label: 'Clubs', symbol: '♣', className: 'suit-clubs' },
   D: { label: 'Diamonds', symbol: '♦', className: 'suit-diamonds' },
