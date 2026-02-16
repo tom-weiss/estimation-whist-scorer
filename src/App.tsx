@@ -514,6 +514,73 @@ function App() {
     });
   }
 
+  function quitGame() {
+    setGameState((previousState) => {
+      const roundIndex = previousState.ui.currentRoundIndex;
+      const playerCount = previousState.config.numberOfPlayers;
+      const zeroTotals = Array(playerCount).fill(0);
+      let nextRounds: RoundState[] = [];
+
+      if (previousState.ui.screen === 'bidding') {
+        nextRounds = previousState.rounds.slice(0, roundIndex);
+      } else if (previousState.ui.screen === 'playing') {
+        const round = previousState.rounds[roundIndex];
+
+        if (!round) {
+          return previousState;
+        }
+
+        nextRounds = previousState.rounds.slice(0, roundIndex + 1);
+
+        const roundScores = calculateRoundScores(round.bids, round.tricksTaken);
+        const previousTotals = roundIndex === 0 ? zeroTotals : nextRounds[roundIndex - 1].totalsAfterRound;
+        const totalsAfterRound = calculateTotals(previousTotals, roundScores);
+
+        nextRounds[roundIndex] = {
+          ...round,
+          roundScores,
+          totalsAfterRound,
+        };
+      } else if (previousState.ui.screen === 'summary') {
+        nextRounds = previousState.rounds.slice(0, roundIndex + 1);
+      } else {
+        return previousState;
+      }
+
+      if (nextRounds.length === 0) {
+        const firstRound = previousState.rounds[0];
+        const firstSuit = generateSuitCycle(previousState.config.suitStart, 1)[0];
+        nextRounds = [
+          {
+            roundIndex: 0,
+            handSize: firstRound ? firstRound.handSize : previousState.config.startingHandSize,
+            suit: firstRound ? firstRound.suit : firstSuit,
+            dealerIndex: firstRound ? firstRound.dealerIndex : previousState.config.firstDealerIndex,
+            bids: Array(playerCount).fill(0),
+            tricksTaken: Array(playerCount).fill(0),
+            roundScores: Array(playerCount).fill(0),
+            totalsAfterRound: zeroTotals,
+          },
+        ];
+      }
+
+      const finalRoundIndex = nextRounds.length - 1;
+      const finalRound = nextRounds[finalRoundIndex];
+
+      return {
+        ...previousState,
+        rounds: nextRounds,
+        ui: {
+          ...previousState.ui,
+          screen: 'summary',
+          currentRoundIndex: finalRoundIndex,
+          currentTrick: 1,
+          currentLeaderIndex: getFirstLeaderIndex(finalRound.dealerIndex, playerCount),
+        },
+      };
+    });
+  }
+
   function newGame() {
     setGameState((previousState) => ({
       config: sanitizeConfig(previousState.config),
@@ -871,21 +938,37 @@ function App() {
         )}
 
         {ui.screen === 'bidding' && (
-          <div className="footer-actions">
+          <div className="footer-actions config-two-col">
+            <button type="button" onClick={quitGame} className="secondary-button">
+              Quit Game
+            </button>
+
             <button type="button" onClick={beginPlaying} disabled={!biddingStateIsValid}>
               Start Playing
             </button>
           </div>
         )}
 
-        {ui.screen === 'playing' && <p className="footer-note">Tap one winner each trick.</p>}
+        {ui.screen === 'playing' && (
+          <div className="footer-actions">
+            <button type="button" onClick={quitGame} className="secondary-button">
+              Quit Game
+            </button>
+          </div>
+        )}
 
         {ui.screen === 'summary' && (
-          <div className="footer-actions">
+          <div className={`footer-actions${!isFinalRound ? ' config-two-col' : ''}`}>
             {!isFinalRound ? (
-              <button type="button" onClick={moveToNextRound}>
-                Next Round
-              </button>
+              <>
+                <button type="button" onClick={quitGame} className="secondary-button">
+                  Quit Game
+                </button>
+
+                <button type="button" onClick={moveToNextRound}>
+                  Next Round
+                </button>
+              </>
             ) : (
               <>
                 <p className="footer-note">Game Over</p>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'estimation-whist-scorer-v1';
+const CACHE_NAME = 'estimation-whist-scorer-v2';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
