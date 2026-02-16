@@ -1,0 +1,17 @@
+{
+  "name": "Estimation Whist Scorer",
+  "short_name": "Whist Scorer",
+  "description": "Mobile-first Estimation Whist scorekeeper with bidding and running totals.",
+  "start_url": "/estimation-whist-scorer/",
+  "display": "standalone",
+  "background_color": "#f8f5ef",
+  "theme_color": "#2b6d5f",
+  "icons": [
+    {
+      "src": "/estimation-whist-scorer/favicon.svg",
+      "sizes": "64x64",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
