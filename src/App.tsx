@@ -321,15 +321,15 @@ function App() {
 
   const headerLine = useMemo(() => {
     if (ui.screen === 'config' || !currentRound) {
-      return 'Estimation Whist Scorer.';
+      return 'Estimation Whist Scorer';
     }
 
     if (ui.screen === 'bidding') {
-      return `${getPlayerName(config, currentRound.dealerIndex)} deals ${currentRound.handSize} cards.`;
+      return `${getPlayerName(config, currentRound.dealerIndex)} to deal ${currentRound.handSize} cards`;
     }
 
     if (ui.screen === 'playing') {
-      return `${getPlayerName(config, ui.currentLeaderIndex)} to lead.`;
+      return `${getPlayerName(config, ui.currentLeaderIndex)} to lead`;
     }
 
     const winner = leaderboard[0];
@@ -337,7 +337,7 @@ function App() {
     const winningMargin = winner ? winner.total - (runnerUp?.total ?? winner.total) : 0;
     const winningName = winner ? winner.name : getPlayerName(config, 0);
 
-    return `${winningName} wins by ${winningMargin}.`;
+    return `${winningName} wins by ${winningMargin}`;
   }, [config, currentRound, leaderboard, ui.currentLeaderIndex, ui.screen]);
 
   function getRoleTokens(playerIndex: number): Array<{ key: string; label: string; title: string }> {
@@ -757,8 +757,8 @@ function App() {
               <label className="field">
                 <span className="field-inline">
                   Start suit
-                  <span className={`mini-suit ${config.suitStart === 'clubs' ? 'suit-clubs' : 'suit-spades'}`}>
-                    {config.suitStart === 'clubs' ? '♣' : '♠'}
+                  <span className={`mini-suit mini-suit-contrast ${config.suitStart === 'clubs' ? 'suit-clubs' : 'suit-spades'}`}>
+                    {config.suitStart === 'clubs' ? '♧' : '♤'}
                   </span>
                 </span>
                 <select
@@ -772,8 +772,8 @@ function App() {
                     }));
                   }}
                 >
-                  <option value="clubs">♣ Clubs</option>
-                  <option value="spades">♠ Spades</option>
+                  <option value="clubs">♧ Clubs</option>
+                  <option value="spades">♤ Spades</option>
                 </select>
               </label>
             </div>

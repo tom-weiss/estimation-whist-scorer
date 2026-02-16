@@ -464,6 +464,11 @@ body {
   font-weight: 700;
 }
 
+.mini-suit-contrast.suit-clubs,
+.mini-suit-contrast.suit-spades {
+  color: var(--ink);
+}
+
 input,
 select,
 button {
