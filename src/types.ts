@@ -5,7 +5,6 @@ export type Screen = 'config' | 'bidding' | 'playing' | 'summary';
 export interface Config {
   numberOfPlayers: number;
   startingHandSize: number;
-  numberOfRounds: number;
   suitStart: SuitStart;
   playerNames: string[];
   firstDealerIndex: number;

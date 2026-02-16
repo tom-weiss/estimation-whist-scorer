@@ -72,7 +72,7 @@ body {
 
 .header-top {
   display: flex;
-  align-items: stretch;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
 }
@@ -89,14 +89,23 @@ body {
   display: flex;
   align-items: stretch;
   gap: 5px;
+  flex: 0 0 auto;
 }
 
 .header-hint {
   margin: 0;
 }
 
+.version-label {
+  margin: 3px 0 0;
+  font-size: 0.62rem;
+  color: var(--muted);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
 .suit-card {
-  flex: 0 0 72px;
+  flex: 0 0 64px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: #fbf2e3;
@@ -109,7 +118,7 @@ body {
 }
 
 .hand-card {
-  flex: 0 0 66px;
+  flex: 0 0 54px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: #efe5d4;
@@ -131,19 +140,19 @@ body {
 }
 
 .hand-value {
-  font-size: 1.2rem;
+  font-size: 1.05rem;
   line-height: 1;
   font-weight: 800;
 }
 
 .suit-symbol {
-  font-size: 1.7rem;
+  font-size: 1.35rem;
   line-height: 1;
   font-weight: 700;
 }
 
 .suit-name {
-  font-size: 0.6rem;
+  font-size: 0.55rem;
   line-height: 1;
   font-weight: 700;
   text-transform: uppercase;
@@ -231,6 +240,11 @@ body {
   gap: 5px;
 }
 
+.config-main-fields {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+
 .compact-two-col {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -239,6 +253,25 @@ body {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 5px;
+}
+
+.config-players-section {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fcf5e8;
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.section-caption {
+  margin: 0;
+  font-size: 0.62rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
 }
 
 .field {
@@ -251,6 +284,19 @@ body {
   font-size: 0.65rem;
   color: var(--muted);
   letter-spacing: 0.02em;
+}
+
+.field-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.mini-suit {
+  font-size: 0.84rem;
+  line-height: 1;
+  font-weight: 700;
 }
 
 input,
@@ -467,31 +513,86 @@ button:disabled {
 .summary-table th:first-child,
 .summary-table td:first-child {
   text-align: left;
-  width: 29%;
+  width: 44%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.running-total-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.game-summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.game-summary-table th,
+.game-summary-table td {
+  border: 1px solid var(--border);
+  padding: 1px 2px;
+  text-align: center;
+  font-size: 0.56rem;
+  line-height: 1.05;
+}
+
+.game-summary-table th {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.game-summary-table th:nth-child(4),
+.game-summary-table td:nth-child(4) {
+  text-align: left;
+  width: 18%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.summary-suit-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
   gap: 4px;
 }
 
-.running-total-item {
+.leaderboard-row {
   border: 1px solid var(--border);
   border-radius: 7px;
   background: #f8f0e2;
   padding: 3px 5px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 4px;
 }
 
-.running-total-item span {
+.leaderboard-head {
+  background: #efe3ce;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.leaderboard-rank {
+  width: 18px;
+  text-align: center;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.leaderboard-name {
   min-width: 0;
+  flex: 1;
   font-size: 0.63rem;
   color: var(--muted);
   white-space: nowrap;
@@ -499,7 +600,17 @@ button:disabled {
   text-overflow: ellipsis;
 }
 
-.running-total-item strong {
+.leaderboard-ou {
+  width: 36px;
+  text-align: center;
+  font-size: 0.63rem;
+  font-weight: 700;
+  color: #4f4639;
+}
+
+.leaderboard-score {
+  width: 38px;
+  text-align: right;
   font-size: 0.8rem;
   line-height: 1;
 }
@@ -522,8 +633,8 @@ button:disabled {
   gap: 5px;
 }
 
-.compact-three-col {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.config-two-col {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .footer-note {
@@ -532,6 +643,46 @@ button:disabled {
   text-align: center;
   color: var(--muted);
   font-size: 0.74rem;
+}
+
+@media (max-width: 430px) {
+  .config-main-fields {
+    gap: 3px;
+  }
+
+  .config-players-section {
+    padding: 4px;
+    gap: 3px;
+  }
+
+  .section-caption {
+    font-size: 0.58rem;
+  }
+
+  .field span {
+    font-size: 0.6rem;
+  }
+
+  .header-badges {
+    gap: 4px;
+  }
+
+  .suit-card {
+    flex-basis: 58px;
+  }
+
+  .hand-card {
+    flex-basis: 48px;
+  }
+
+  .hand-label,
+  .suit-name {
+    font-size: 0.5rem;
+  }
+
+  .hand-value {
+    font-size: 0.94rem;
+  }
 }
 
 @media (max-width: 360px) {
@@ -551,19 +702,19 @@ button:disabled {
   }
 
   .suit-card {
-    flex-basis: 64px;
+    flex-basis: 52px;
   }
 
   .hand-card {
-    flex-basis: 58px;
+    flex-basis: 44px;
   }
 
   .hand-value {
-    font-size: 1.05rem;
+    font-size: 0.86rem;
   }
 
   .suit-symbol {
-    font-size: 1.45rem;
+    font-size: 1.15rem;
   }
 
   .info-value {
@@ -578,5 +729,13 @@ button:disabled {
 
   .stepper-value {
     width: 24px;
+  }
+
+  .field span {
+    font-size: 0.56rem;
+  }
+
+  .section-caption {
+    font-size: 0.54rem;
   }
 }

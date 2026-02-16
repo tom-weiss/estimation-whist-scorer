@@ -1,27 +1,44 @@
 {
+  "id": "/estimation-whist-scorer/",
   "name": "Estimation Whist Scorer",
   "short_name": "Whist Scorer",
   "description": "Mobile-first Estimation Whist scorekeeper with bidding and running totals.",
   "start_url": "/estimation-whist-scorer/",
+  "scope": "/estimation-whist-scorer/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "orientation": "portrait",
   "background_color": "#f8f5ef",
   "theme_color": "#2b6d5f",
+  "categories": ["games", "utilities"],
   "icons": [
     {
       "src": "/estimation-whist-scorer/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
       "src": "/estimation-whist-scorer/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/estimation-whist-scorer/icon-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/estimation-whist-scorer/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/estimation-whist-scorer/favicon.svg",
-      "sizes": "64x64",
+      "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any"
     }
