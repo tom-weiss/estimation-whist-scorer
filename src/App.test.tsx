@@ -101,6 +101,24 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: '7 hands to go: Jane to lead' })).toBeInTheDocument();
   });
 
+  it('allows undoing the previous round final trick after moving to the next round', () => {
+    render(<App />);
+
+    fillRequiredNames();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Starting hand' }), { target: { value: '2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Start Game' }));
+    completeBiddingWithZero(4);
+    fireEvent.click(screen.getByRole('button', { name: /Tom/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Tom/ }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next Round' }));
+
+    const undoButton = screen.getByRole('button', { name: 'Undo' });
+    expect(undoButton).not.toBeDisabled();
+    fireEvent.click(undoButton);
+    expect(screen.getByRole('heading', { name: '1 hands to go: Tom to lead' })).toBeInTheDocument();
+  });
+
   it('toggles the current leaderboard on the playing screen', () => {
     render(<App />);
 

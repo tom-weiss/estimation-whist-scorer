@@ -386,9 +386,14 @@ function App() {
   }, [config, currentRound]);
 
   const canUndoBid = ui.screen === 'bidding' && ui.currentBidTurn > 0;
+  const canUndoPreviousRoundTrick =
+    ui.screen === 'bidding' &&
+    ui.currentBidTurn === 0 &&
+    ui.currentRoundIndex > 0 &&
+    (gameState.rounds[ui.currentRoundIndex - 1]?.trickWinners.length ?? 0) > 0;
   const canUndoPlayingTrick = ui.screen === 'playing' && currentRound !== undefined;
   const canUndoSummaryTrick = ui.screen === 'summary' && currentRound !== undefined && currentRound.trickWinners.length > 0;
-  const canUndo = canUndoBid || canUndoPlayingTrick || canUndoSummaryTrick;
+  const canUndo = canUndoBid || canUndoPreviousRoundTrick || canUndoPlayingTrick || canUndoSummaryTrick;
   const canShowHeaderTools = ui.screen !== 'config' && currentRound !== undefined;
 
   useEffect(() => {
@@ -670,25 +675,35 @@ function App() {
 
   function undoGameAction() {
     setGameState((previousState) => {
+      let undoingPreviousRound = false;
+
       if (previousState.ui.screen === 'bidding') {
-        if (previousState.ui.currentBidTurn <= 0) {
+        if (previousState.ui.currentBidTurn > 0) {
+          return {
+            ...previousState,
+            ui: {
+              ...previousState.ui,
+              currentBidTurn: previousState.ui.currentBidTurn - 1,
+            },
+          };
+        }
+
+        const previousRound = previousState.rounds[previousState.ui.currentRoundIndex - 1];
+
+        if (!previousRound || previousRound.trickWinners.length === 0) {
           return previousState;
         }
 
-        return {
-          ...previousState,
-          ui: {
-            ...previousState.ui,
-            currentBidTurn: previousState.ui.currentBidTurn - 1,
-          },
-        };
+        undoingPreviousRound = true;
       }
 
-      if (previousState.ui.screen !== 'playing' && previousState.ui.screen !== 'summary') {
+      if (!undoingPreviousRound && previousState.ui.screen !== 'playing' && previousState.ui.screen !== 'summary') {
         return previousState;
       }
 
-      const roundIndex = previousState.ui.currentRoundIndex;
+      const roundIndex = undoingPreviousRound
+        ? previousState.ui.currentRoundIndex - 1
+        : previousState.ui.currentRoundIndex;
       const round = previousState.rounds[roundIndex];
 
       if (!round) {
@@ -732,12 +747,13 @@ function App() {
       const nextRounds = [...previousState.rounds];
       const zeroScores = Array(previousState.config.numberOfPlayers).fill(0);
       const previousTotals = roundIndex === 0 ? zeroScores : previousState.rounds[roundIndex - 1].totalsAfterRound;
+      const undoingCompletedRound = previousState.ui.screen === 'summary' || undoingPreviousRound;
       nextRounds[roundIndex] = {
         ...round,
         tricksTaken: nextTricksTaken,
         trickWinners: nextTrickWinners,
-        roundScores: previousState.ui.screen === 'summary' ? zeroScores : round.roundScores,
-        totalsAfterRound: previousState.ui.screen === 'summary' ? previousTotals : round.totalsAfterRound,
+        roundScores: undoingCompletedRound ? zeroScores : round.roundScores,
+        totalsAfterRound: undoingCompletedRound ? previousTotals : round.totalsAfterRound,
       };
 
       return {
@@ -746,10 +762,8 @@ function App() {
         ui: {
           ...previousState.ui,
           screen: 'playing',
-          currentTrick:
-            previousState.ui.screen === 'summary'
-              ? round.handSize
-              : Math.max(1, previousState.ui.currentTrick - 1),
+          currentRoundIndex: roundIndex,
+          currentTrick: undoingCompletedRound ? round.handSize : Math.max(1, previousState.ui.currentTrick - 1),
           currentLeaderIndex: leaderBeforeUndoneTrick,
         },
       };
